@@ -28,11 +28,24 @@ intent/*.yml → validate → render → plan (diff vs running) → apply → ve
 | 5 | Verify / drift | parse `show ... json`, compare to intent, non-zero exit on drift | |
 | 6 | CI | GitHub Actions: validate + render + unit tests on every PR | |
 
-## Scope note
+## Build scope — MVP first (design doc v2.5)
 
-The design doc leaves the second route reflector uncabled, so phase 1 deploys
-**15 nodes / 22 links**: 9 XFT routers (3 site, 3 ABR, ok-core-000, b1, b2) plus
-6 partner edges. The second RR joins once it has a name and a loopback.
+`intent/topology.yml` always describes the full target. A **scope** says which
+part to build now, and names routers only — a link is in scope when both its
+routers are, so adding a router pulls in its cables automatically.
+
+`mvp` = **10 routers, 11 links**: 3 site routers, 3 ABRs, one reflector
+(ok-core-000), one border router (b1), and one partner on each side (A, X).
+Single points of failure accepted; every address for the missing pieces is
+already reserved, so nothing renumbers when they arrive.
+
+```
+.venv/bin/python -m xft.render.clab               # mvp
+.venv/bin/python -m xft.render.clab --scope full  # the whole target
+```
+
+Growing it is one line in `scopes.mvp.routers` at a time: add `ok-border-001`
+and its seven cables appear; add `b-ebgp-65002` and its link to b1 appears.
 
 ## Open — must be answered before the layer that needs them
 

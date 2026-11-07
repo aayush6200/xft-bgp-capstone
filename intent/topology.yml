@@ -13,8 +13,8 @@
 meta:
   name: xft
   as_number: 65000
-  design_doc: "docs/XFT BGP Capstone – Design Decisions (v2.4).docx"
-  design_version: "2.4"
+  design_doc: "docs/XFT BGP Capstone – Design Decisions (v2.5).docx"
+  design_version: "2.5"
 
 defaults:
   image: quay.io/frrouting/frr:9.1.0
@@ -22,6 +22,30 @@ defaults:
   mgmt_interface: eth0         # containerlab's; data links start at eth1
   # "In each /30 the source end takes the first usable address" (design doc).
   addressing_rule: source_takes_first_usable
+
+# Build scopes. The file always describes the FULL target design; a scope says
+# which part of it to build right now. Links are not listed: a link is in scope
+# when both of its routers are, so adding a router pulls in its cables by itself.
+scopes:
+  mvp:
+    description: >-
+      Minimum viable XFT (design doc v2.5): one reflector, one border router,
+      one partner on each side. Single points of failure accepted; every
+      address for the missing pieces is already reserved so nothing renumbers.
+    routers:
+      - ca-ibgp-100
+      - tx-ibgp-200
+      - ny-ibgp-300
+      - ca-abr-100
+      - tx-abr-200
+      - ny-abr-300
+      - ok-core-000
+      - ok-border-000     # b1
+      - a-ebgp-65001      # south partner A
+      - x-ebgp-65010      # north partner X
+  full:
+    description: The complete v2.5 target, minus the still-unnamed second reflector.
+    routers: all
 
 sites:
   CA:
@@ -101,20 +125,20 @@ routers:
     asn: 65000
     loopback: 10.255.0.20/32
     route_reflector: true
-  # OPEN: second route reflector — needs a name, a loopback and cabling
-  # before it can be added here (design doc, open problems).
+  # OPEN: second route reflector — loopback 10.255.0.21/32 is reserved for it,
+  # but it still needs a name and cabling before it can be added here.
   - name: ok-border-000
     site: OK
     role: border          # b1
     asn: 65000
-    loopback: 10.255.0.21/32
+    loopback: 10.255.0.22/32
     rr_client: true
     next_hop_self: true
   - name: ok-border-001
     site: OK
     role: border          # b2
     asn: 65000
-    loopback: 10.255.0.22/32
+    loopback: 10.255.0.23/32
     rr_client: true
     next_hop_self: true
 

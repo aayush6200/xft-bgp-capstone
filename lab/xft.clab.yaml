@@ -34,25 +34,10 @@ topology:
     ok-border-000:
       binds:
       - daemons:/etc/frr/daemons
-    ok-border-001:
-      binds:
-      - daemons:/etc/frr/daemons
     a-ebgp-65001:
       binds:
       - daemons:/etc/frr/daemons
-    b-ebgp-65002:
-      binds:
-      - daemons:/etc/frr/daemons
-    c-ebgp-65003:
-      binds:
-      - daemons:/etc/frr/daemons
     x-ebgp-65010:
-      binds:
-      - daemons:/etc/frr/daemons
-    y-ebgp-65011:
-      binds:
-      - daemons:/etc/frr/daemons
-    z-ebgp-65012:
       binds:
       - daemons:/etc/frr/daemons
   links:
@@ -84,41 +69,8 @@ topology:
     - ok-core-000:eth4
     - ok-border-000:eth1
   - endpoints:
-    - ok-core-000:eth5
-    - ok-border-001:eth1
-  - endpoints:
     - ok-border-000:eth2
     - a-ebgp-65001:eth1
   - endpoints:
-    - ok-border-001:eth2
-    - a-ebgp-65001:eth2
-  - endpoints:
-    - ok-border-000:eth3
-    - b-ebgp-65002:eth1
-  - endpoints:
-    - ok-border-001:eth3
-    - b-ebgp-65002:eth2
-  - endpoints:
-    - ok-border-000:eth4
-    - c-ebgp-65003:eth1
-  - endpoints:
-    - ok-border-001:eth4
-    - c-ebgp-65003:eth2
-  - endpoints:
     - ok-border-000:eth5
     - x-ebgp-65010:eth1
-  - endpoints:
-    - ok-border-001:eth5
-    - x-ebgp-65010:eth2
-  - endpoints:
-    - ok-border-000:eth6
-    - y-ebgp-65011:eth1
-  - endpoints:
-    - ok-border-001:eth6
-    - y-ebgp-65011:eth2
-  - endpoints:
-    - ok-border-000:eth7
-    - z-ebgp-65012:eth1
-  - endpoints:
-    - ok-border-001:eth7
-    - z-ebgp-65012:eth2

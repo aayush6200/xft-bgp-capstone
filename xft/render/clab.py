@@ -5,8 +5,9 @@ ends. The subnet and OSPF area in the same row feed the router configs later.
 Generating both from one table is what keeps a cable from pointing at an
 interface no config knows about.
 
-    python -m xft.render.clab          # write lab/xft.clab.yaml
-    python -m xft.render.clab --check  # fail if the file is stale
+    python -m xft.render.clab                 # write lab/xft.clab.yaml (mvp scope)
+    python -m xft.render.clab --scope full    # the whole target design
+    python -m xft.render.clab --check         # fail if the file is stale
 """
 
 from __future__ import annotations
@@ -30,6 +31,36 @@ HEADER = (
 def load_intent(path: Path = INTENT) -> dict:
     with path.open() as fh:
         return yaml.safe_load(fh)
+
+
+def apply_scope(intent: dict, scope: str) -> dict:
+    """Narrow the intent to one build scope.
+
+    A scope names routers only. A link belongs to the scope when both of its
+    routers do, so adding a router to a scope brings its cables along and the
+    two lists can never fall out of step.
+    """
+    scopes = intent.get("scopes", {})
+    if scope not in scopes:
+        raise KeyError(f"unknown scope {scope!r}; have: {', '.join(sorted(scopes))}")
+
+    wanted = scopes[scope]["routers"]
+    if wanted == "all":
+        return intent
+
+    routers = [r for r in intent["routers"] if r["name"] in set(wanted)]
+    missing = set(wanted) - {r["name"] for r in routers}
+    if missing:
+        raise KeyError(f"scope {scope!r} names routers that do not exist: {sorted(missing)}")
+
+    in_scope = {r["name"] for r in routers}
+    links = [
+        link
+        for link in intent["links"]
+        if link["source"]["router"] in in_scope
+        and link["destination"]["router"] in in_scope
+    ]
+    return {**intent, "routers": routers, "links": links}
 
 
 def check_interfaces(intent: dict) -> list[str]:
@@ -95,13 +126,18 @@ def render(intent: dict) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--scope",
+        default="mvp",
+        help="which build scope to render (default: mvp)",
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="do not write; exit non-zero if the generated file is out of date",
     )
     args = parser.parse_args(argv)
 
-    intent = load_intent()
+    intent = apply_scope(load_intent(), args.scope)
 
     problems = check_interfaces(intent)
     if problems:
@@ -121,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
 
     OUTPUT.write_text(rendered)
     print(
-        f"wrote {OUTPUT.relative_to(REPO)}: "
+        f"wrote {OUTPUT.relative_to(REPO)} [scope: {args.scope}]: "
         f"{len(intent['routers'])} nodes, {len(intent['links'])} links"
     )
     return 0
