@@ -8,5 +8,3 @@ venv/
 .DS_Store
 ~$*.docx
 
-# generated artifacts — rebuilt from intent/
-lab/generated/

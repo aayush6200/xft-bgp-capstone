@@ -1,0 +1,286 @@
+# XFT physical topology — the single source of truth for cabling.
+#
+# Transcribed from the Routers (v2.3) and Links (v2.3) tables in
+# docs/XFT BGP Capstone – Design Decisions (v2.4).docx
+#
+# Three things live in each link row and each has a different consumer:
+#   router + interface  -> the containerlab topology (veth pairs)
+#   subnet              -> interface addressing in the router configs
+#   ospf_area           -> the OSPF config on both ends of the cable
+# Keeping them in one row is what stops a cable pointing at an interface
+# no config knows about.
+
+meta:
+  name: xft
+  as_number: 65000
+  design_doc: "docs/XFT BGP Capstone – Design Decisions (v2.4).docx"
+  design_version: "2.4"
+
+defaults:
+  image: quay.io/frrouting/frr:9.1.0
+  daemons_file: daemons        # bound at /etc/frr/daemons, path relative to the clab file
+  mgmt_interface: eth0         # containerlab's; data links start at eth1
+  # "In each /30 the source end takes the first usable address" (design doc).
+  addressing_rule: source_takes_first_usable
+
+sites:
+  CA:
+    name: California
+    role: branch
+    headquarters: true
+    core_area: 100
+    department_areas: [101, 199]   # range, not yet cabled
+  TX:
+    name: Texas
+    role: branch
+    core_area: 200
+    department_areas: [201, 299]
+  NY:
+    name: New York
+    role: branch
+    core_area: 300
+    department_areas: [301, 399]
+  OK:
+    name: Oklahoma
+    role: partner_edge             # area 0 only; no site area, no ABR
+    core_area: 0
+
+partners:
+  A: {asn: 65001, group: south}
+  B: {asn: 65002, group: south}
+  C: {asn: 65003, group: south}
+  X: {asn: 65010, group: north}
+  Y: {asn: 65011, group: north}
+  Z: {asn: 65012, group: north}
+
+routers:
+  # --- site routers (iBGP only, sit in their site's core area) ---
+  - name: ca-ibgp-100
+    site: CA
+    role: site_router
+    asn: 65000
+    loopback: 10.255.0.1/32
+    rr_client: true
+  - name: tx-ibgp-200
+    site: TX
+    role: site_router
+    asn: 65000
+    loopback: 10.255.0.2/32
+    rr_client: true
+  - name: ny-ibgp-300
+    site: NY
+    role: site_router
+    asn: 65000
+    loopback: 10.255.0.3/32
+    rr_client: true
+
+  # --- site ABRs (core area + department areas + area 0 uplinks) ---
+  - name: ca-abr-100
+    site: CA
+    role: site_abr
+    asn: 65000
+    loopback: 10.255.0.11/32
+    rr_client: true
+  - name: tx-abr-200
+    site: TX
+    role: site_abr
+    asn: 65000
+    loopback: 10.255.0.12/32
+    rr_client: true
+  - name: ny-abr-300
+    site: NY
+    role: site_abr
+    asn: 65000
+    loopback: 10.255.0.13/32
+    rr_client: true
+
+  # --- Oklahoma: backbone + partner edge ---
+  - name: ok-core-000
+    site: OK
+    role: backbone
+    asn: 65000
+    loopback: 10.255.0.20/32
+    route_reflector: true
+  # OPEN: second route reflector — needs a name, a loopback and cabling
+  # before it can be added here (design doc, open problems).
+  - name: ok-border-000
+    site: OK
+    role: border          # b1
+    asn: 65000
+    loopback: 10.255.0.21/32
+    rr_client: true
+    next_hop_self: true
+  - name: ok-border-001
+    site: OK
+    role: border          # b2
+    asn: 65000
+    loopback: 10.255.0.22/32
+    rr_client: true
+    next_hop_self: true
+
+  # --- partner edges (outside AS 65000; loopbacks still open) ---
+  - name: a-ebgp-65001
+    partner: A
+    role: partner_edge
+    asn: 65001
+  - name: b-ebgp-65002
+    partner: B
+    role: partner_edge
+    asn: 65002
+  - name: c-ebgp-65003
+    partner: C
+    role: partner_edge
+    asn: 65003
+  - name: x-ebgp-65010
+    partner: X
+    role: partner_edge
+    asn: 65010
+  - name: y-ebgp-65011
+    partner: Y
+    role: partner_edge
+    asn: 65011
+  - name: z-ebgp-65012
+    partner: Z
+    role: partner_edge
+    asn: 65012
+
+links:
+  # --- inside each site: site router to its ABR, in the site's core area ---
+  - id: 1
+    source: {router: ca-ibgp-100, interface: eth1}
+    destination: {router: ca-abr-100, interface: eth1}
+    subnet: 10.0.0.0/30
+    ospf_area: 100
+    kind: intra_site
+  - id: 2
+    source: {router: tx-ibgp-200, interface: eth1}
+    destination: {router: tx-abr-200, interface: eth1}
+    subnet: 10.0.0.4/30
+    ospf_area: 200
+    kind: intra_site
+  - id: 3
+    source: {router: ny-ibgp-300, interface: eth1}
+    destination: {router: ny-abr-300, interface: eth1}
+    subnet: 10.0.0.8/30
+    ospf_area: 300
+    kind: intra_site
+
+  # --- backbone: every inter-site cable is area 0 ---
+  - id: 4
+    source: {router: ca-abr-100, interface: eth2}
+    destination: {router: tx-abr-200, interface: eth2}
+    subnet: 10.0.0.12/30
+    ospf_area: 0
+    kind: backbone
+  - id: 5
+    source: {router: tx-abr-200, interface: eth3}
+    destination: {router: ny-abr-300, interface: eth2}
+    subnet: 10.0.0.16/30
+    ospf_area: 0
+    kind: backbone
+  - id: 6
+    source: {router: ca-abr-100, interface: eth3}
+    destination: {router: ok-core-000, interface: eth1}
+    subnet: 10.0.0.20/30
+    ospf_area: 0
+    kind: backbone
+  - id: 7
+    source: {router: tx-abr-200, interface: eth4}
+    destination: {router: ok-core-000, interface: eth2}
+    subnet: 10.0.0.24/30
+    ospf_area: 0
+    kind: backbone
+  - id: 8
+    source: {router: ny-abr-300, interface: eth3}
+    destination: {router: ok-core-000, interface: eth3}
+    subnet: 10.0.0.28/30
+    ospf_area: 0
+    kind: backbone
+
+  # --- inside Oklahoma: core to each border router ---
+  - id: 9
+    source: {router: ok-core-000, interface: eth4}
+    destination: {router: ok-border-000, interface: eth1}
+    subnet: 10.0.0.32/30
+    ospf_area: 0
+    kind: intra_site
+  - id: 10
+    source: {router: ok-core-000, interface: eth5}
+    destination: {router: ok-border-001, interface: eth1}
+    subnet: 10.0.0.36/30
+    ospf_area: 0
+    kind: intra_site
+
+  # --- eBGP: every partner dual-homes to b1 and b2, no OSPF across the boundary ---
+  - id: 11
+    source: {router: ok-border-000, interface: eth2}
+    destination: {router: a-ebgp-65001, interface: eth1}
+    subnet: 172.16.0.0/30
+    ospf_area: null
+    kind: ebgp
+  - id: 12
+    source: {router: ok-border-001, interface: eth2}
+    destination: {router: a-ebgp-65001, interface: eth2}
+    subnet: 172.16.0.4/30
+    ospf_area: null
+    kind: ebgp
+  - id: 13
+    source: {router: ok-border-000, interface: eth3}
+    destination: {router: b-ebgp-65002, interface: eth1}
+    subnet: 172.16.0.8/30
+    ospf_area: null
+    kind: ebgp
+  - id: 14
+    source: {router: ok-border-001, interface: eth3}
+    destination: {router: b-ebgp-65002, interface: eth2}
+    subnet: 172.16.0.12/30
+    ospf_area: null
+    kind: ebgp
+  - id: 15
+    source: {router: ok-border-000, interface: eth4}
+    destination: {router: c-ebgp-65003, interface: eth1}
+    subnet: 172.16.0.16/30
+    ospf_area: null
+    kind: ebgp
+  - id: 16
+    source: {router: ok-border-001, interface: eth4}
+    destination: {router: c-ebgp-65003, interface: eth2}
+    subnet: 172.16.0.20/30
+    ospf_area: null
+    kind: ebgp
+  - id: 17
+    source: {router: ok-border-000, interface: eth5}
+    destination: {router: x-ebgp-65010, interface: eth1}
+    subnet: 172.16.0.24/30
+    ospf_area: null
+    kind: ebgp
+  - id: 18
+    source: {router: ok-border-001, interface: eth5}
+    destination: {router: x-ebgp-65010, interface: eth2}
+    subnet: 172.16.0.28/30
+    ospf_area: null
+    kind: ebgp
+  - id: 19
+    source: {router: ok-border-000, interface: eth6}
+    destination: {router: y-ebgp-65011, interface: eth1}
+    subnet: 172.16.0.32/30
+    ospf_area: null
+    kind: ebgp
+  - id: 20
+    source: {router: ok-border-001, interface: eth6}
+    destination: {router: y-ebgp-65011, interface: eth2}
+    subnet: 172.16.0.36/30
+    ospf_area: null
+    kind: ebgp
+  - id: 21
+    source: {router: ok-border-000, interface: eth7}
+    destination: {router: z-ebgp-65012, interface: eth1}
+    subnet: 172.16.0.40/30
+    ospf_area: null
+    kind: ebgp
+  - id: 22
+    source: {router: ok-border-001, interface: eth7}
+    destination: {router: z-ebgp-65012, interface: eth2}
+    subnet: 172.16.0.44/30
+    ospf_area: null
+    kind: ebgp
