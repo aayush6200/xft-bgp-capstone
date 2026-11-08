@@ -123,6 +123,31 @@ def render(intent: dict) -> str:
     return HEADER + yaml.safe_dump(build(intent), sort_keys=False, width=100)
 
 
+def list_scope(scope: str) -> int:
+    """Print the scope resolved against the catalogue, so nobody has to work out
+    what is being built by reading two parts of a file and comparing them."""
+    full = load_intent()
+    built = apply_scope(full, scope)
+
+    in_scope = {r["name"] for r in built["routers"]}
+    built_links = {link["id"] for link in built["links"]}
+
+    print(f"scope '{scope}': {len(built['routers'])} routers, {len(built['links'])} links\n")
+    print("BUILT")
+    for router in built["routers"]:
+        print(f"  {router['name']:<16} {router['role']}")
+
+    held = [r for r in full["routers"] if r["name"] not in in_scope]
+    if held:
+        print("\nNOT BUILT (address reserved, stays in the catalogue)")
+        for router in held:
+            loopback = router.get("loopback") or "no loopback yet"
+            print(f"  {router['name']:<16} {router['role']:<14} {loopback}")
+        skipped = [link["id"] for link in full["links"] if link["id"] not in built_links]
+        print(f"\n  links held back: {', '.join(str(i) for i in skipped)}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -135,7 +160,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="do not write; exit non-zero if the generated file is out of date",
     )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        dest="list_scope",
+        help="print what this scope builds and what it leaves out, then exit",
+    )
     args = parser.parse_args(argv)
+
+    if args.list_scope:
+        return list_scope(args.scope)
 
     intent = apply_scope(load_intent(), args.scope)
 

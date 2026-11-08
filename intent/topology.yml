@@ -13,7 +13,7 @@
 meta:
   name: xft
   as_number: 65000
-  design_doc: "docs/XFT BGP Capstone – Design Decisions (v2.5).docx"
+  design_doc: "docs/XFT BGP Capstone Design Decisions (v2.5).docx"
   design_version: "2.5"
 
 defaults:
@@ -77,6 +77,10 @@ partners:
   Y: {asn: 65011, group: north}
   Z: {asn: 65012, group: north}
 
+# CATALOGUE of every router in the target design — not a build list.
+# What actually gets built is whatever `scopes.<name>.routers` above selects;
+# everything else sits here holding its reserved addresses. To see the split:
+#   python -m xft.render.clab --list
 routers:
   # --- site routers (iBGP only, sit in their site's core area) ---
   - name: ca-ibgp-100
