@@ -1,6 +1,6 @@
 # XFT BGP Capstone
 
-A design-first network build. **XFT** is a fictional company with four sites and
+A design-first network build. XFT is a fictional company with four sites and
 six partner companies; this repo carries its network from a written design
 through generated configuration to a running lab.
 
@@ -14,20 +14,20 @@ OSPF areas, so the two can never disagree.
 
 ## The design
 
-**XFT, AS 65000.** California (HQ), Texas and New York are branch sites;
-**Oklahoma is the partner edge**, hosting the border routers that run eBGP to
+XFT, AS 65000. California (HQ), Texas and New York are branch sites;
+Oklahoma is the partner edge, hosting the border routers that run eBGP to
 every partner and iBGP into the network.
 
-- **OSPF** — area 0 is the backbone: every inter-site cable, plus each site's
+- OSPF — area 0 is the backbone: every inter-site cable, plus each site's
   ABR and the Oklahoma routers. Each site owns a block of 100 area numbers
   (CA 100–199, TX 200–299, NY 300–399); the first is the site's core area, the
   rest are departments. Department areas are totally stubby, so a department
   router sees its own area and one default route to its ABR.
-- **iBGP** — route reflectors in Oklahoma replace the full mesh: 17 sessions at
+- iBGP — route reflectors in Oklahoma replace the full mesh: 17 sessions at
   the target size instead of 45. Every router in the forwarding path to the
   partners is an RR client, so none of them black-holes partner traffic.
-- **eBGP** — each partner peers with both border routers. XFT is a multihomed
-  **non-transit** AS: an outbound prefix list on every partner session permits
+- eBGP — each partner peers with both border routers. XFT is a multihomed
+  non-transit AS: an outbound prefix list on every partner session permits
   only XFT's own prefixes, so partner traffic is never carried between partners.
 
 Full reasoning, alternatives considered, and accepted risks:
@@ -40,7 +40,7 @@ intent/*.yml  →  validate  →  render  →  plan  →  apply  →  verify
 ```
 
 `intent/topology.yml` is the catalogue of every router and cable in the target
-design. A **scope** selects what to build now, naming routers only — a link is
+design. A scope selects what to build now, naming routers only — a link is
 in scope when both of its routers are, so adding a router pulls in its cables
 automatically and the two lists cannot drift apart.
 
@@ -51,7 +51,7 @@ python -m xft.render.clab --scope full    # the whole target        (15 routers,
 python -m xft.render.clab --check         # non-zero exit if the generated file is stale
 ```
 
-The current scope is the **MVP**: one route reflector, one border router, and
+The current scope is the MVP: one route reflector, one border router, and
 one partner on each side. The pieces that are missing keep their addresses
 reserved in the catalogue, so nothing renumbers when they arrive — growing the
 build is one name at a time in `scopes.mvp.routers`.
