@@ -50,7 +50,7 @@ scopes:
 sites:
   CA:
     name: California
-    role: branch
+    role: headquarter
     headquarters: true
     core_area: 100
     department_areas: [101, 199]   # range, not yet cabled
@@ -137,14 +137,12 @@ routers:
     asn: 65000
     loopback: 10.255.0.22/32
     rr_client: true
-    next_hop_self: true
   - name: ok-border-001
     site: OK
     role: border          # b2
     asn: 65000
     loopback: 10.255.0.23/32
     rr_client: true
-    next_hop_self: true
 
   # --- partner edges (outside AS 65000; loopbacks still open) ---
   - name: a-ebgp-65001
