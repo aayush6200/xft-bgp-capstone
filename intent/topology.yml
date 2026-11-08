@@ -88,19 +88,16 @@ routers:
     role: site_router
     asn: 65000
     loopback: 10.255.0.1/32
-    rr_client: true
   - name: tx-ibgp-200
     site: TX
     role: site_router
     asn: 65000
     loopback: 10.255.0.2/32
-    rr_client: true
   - name: ny-ibgp-300
     site: NY
     role: site_router
     asn: 65000
     loopback: 10.255.0.3/32
-    rr_client: true
 
   # --- site ABRs (core area + department areas + area 0 uplinks) ---
   - name: ca-abr-100
@@ -108,19 +105,16 @@ routers:
     role: site_abr
     asn: 65000
     loopback: 10.255.0.11/32
-    rr_client: true
   - name: tx-abr-200
     site: TX
     role: site_abr
     asn: 65000
     loopback: 10.255.0.12/32
-    rr_client: true
   - name: ny-abr-300
     site: NY
     role: site_abr
     asn: 65000
     loopback: 10.255.0.13/32
-    rr_client: true
 
   # --- Oklahoma: backbone + partner edge ---
   - name: ok-core-000
@@ -128,7 +122,6 @@ routers:
     role: backbone
     asn: 65000
     loopback: 10.255.0.20/32
-    route_reflector: true
   # OPEN: second route reflector — loopback 10.255.0.21/32 is reserved for it,
   # but it still needs a name and cabling before it can be added here.
   - name: ok-border-000
@@ -136,13 +129,11 @@ routers:
     role: border          # b1
     asn: 65000
     loopback: 10.255.0.22/32
-    rr_client: true
   - name: ok-border-001
     site: OK
     role: border          # b2
     asn: 65000
     loopback: 10.255.0.23/32
-    rr_client: true
 
   # --- partner edges (outside AS 65000; loopbacks still open) ---
   - name: a-ebgp-65001
