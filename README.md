@@ -1,59 +1,82 @@
 # XFT BGP Capstone
 
-A business-framed BGP design-and-build capstone: **XFT**, a fictional company,
-runs a single autonomous system and progressively peers with six partner
-companies. Every version is designed on paper first (design doc + topology
-figure), attacked for failure modes, then built and verified in a containerlab
-topology with FRRouting — captures and all.
+A design-first network build. **XFT** is a fictional company with four sites and
+six partner companies; this repo carries its network from a written design
+through generated configuration to a running lab.
 
-This is the capstone of a months-long L2/L3 networking deep-dive (OSPF
-multi-area, eBGP policy, iBGP route reflection) done create → break → learn style.
+Every version is designed on paper first, attacked for failure modes, then built
+in containerlab with FRRouting and verified with captures. The configuration is
+generated from a single intent file rather than typed into routers — the same
+link table that cables the lab also addresses the interfaces and assigns the
+OSPF areas, so the two can never disagree.
 
-![XFT topology v2.1 with OSPF areas](docs/topology-v2.1-ospf.png)
+![XFT topology v2.2](docs/topology-v2.2.png)
 
-## Current state — v2.1 (design)
+## The design
 
-- **XFT, AS 65000.** Sites: California (HQ), Texas, New York, and **Oklahoma —
-  the partner edge**, hosting border routers **b1 and b2** (eBGP + iBGP).
-- **Every partner dual-homes to b1 and b2.** South: A (AS 65001), B (65002),
-  C (65003). North: X (65010), Y (65011), Z (65012).
-- **XFT is not transit** — nothing is passed between partners (v2 ruling).
-- **iBGP:** full mesh among b1, b2, CA, TX, NY — 10 sessions. Route reflectors
-  planned for OK as sites grow.
-- **OSPF (new in v2.1):** area 0 = b1, b2, each site's ABR (x1/x2/x3) and their
-  links. Site areas: 1 = CA, 2 = TX, 3 = NY (4–10 reserved). Departmental
-  areas in per-site blocks: CA 100–199, TX 200–299, NY 300–399 — attached to
-  area 0 only through the site's ABR. Flooding stays local; summaries cross
-  the long-haul.
+**XFT, AS 65000.** California (HQ), Texas and New York are branch sites;
+**Oklahoma is the partner edge**, hosting the border routers that run eBGP to
+every partner and iBGP into the network.
 
-### Accepted risks / open items (on the record)
+- **OSPF** — area 0 is the backbone: every inter-site cable, plus each site's
+  ABR and the Oklahoma routers. Each site owns a block of 100 area numbers
+  (CA 100–199, TX 200–299, NY 300–399); the first is the site's core area, the
+  rest are departments. Department areas are totally stubby, so a department
+  router sees its own area and one default route to its ABR.
+- **iBGP** — route reflectors in Oklahoma replace the full mesh: 17 sessions at
+  the target size instead of 45. Every router in the forwarding path to the
+  partners is an RR client, so none of them black-holes partner traffic.
+- **eBGP** — each partner peers with both border routers. XFT is a multihomed
+  **non-transit** AS: an outbound prefix list on every partner session permits
+  only XFT's own prefixes, so partner traffic is never carried between partners.
 
-- **OK is the single partner exit** — losing the site cuts off every partner.
-- **One ABR per site** (pair planned) — losing a site's ABR isolates its areas.
-- Open: which area the CA–TX / TX–NY links belong to; what areas 1–3 contain
-  beyond the site router.
+Full reasoning, alternatives considered, and accepted risks:
+[`docs/XFT BGP Capstone – Design Decisions (v2.5).docx`](docs/).
 
-## Design evolution
+## Configuration as code
 
-| Version | What changed | Figure |
+```
+intent/*.yml  →  validate  →  render  →  plan  →  apply  →  verify
+```
+
+`intent/topology.yml` is the catalogue of every router and cable in the target
+design. A **scope** selects what to build now, naming routers only — a link is
+in scope when both of its routers are, so adding a router pulls in its cables
+automatically and the two lists cannot drift apart.
+
+```bash
+python -m xft.render.clab --list          # what this scope builds, and what it holds back
+python -m xft.render.clab                 # write lab/xft.clab.yaml  (mvp: 10 routers, 11 links)
+python -m xft.render.clab --scope full    # the whole target        (15 routers, 22 links)
+python -m xft.render.clab --check         # non-zero exit if the generated file is stale
+```
+
+The current scope is the **MVP**: one route reflector, one border router, and
+one partner on each side. The pieces that are missing keep their addresses
+reserved in the catalogue, so nothing renumbers when they arrive — growing the
+build is one name at a time in `scopes.mvp.routers`.
+
+## Progress
+
+| Phase | | |
 |---|---|---|
-| v1.2 | 3 sites, OSPF backbone, iBGP mesh; TX = accepted SPOF for CA–NY | [v1.2](docs/topology-v1.2.png) |
-| v2.0 | Oklahoma partner edge (b1/b2), partners dual-homed, sites iBGP-only; TX SPOF removed | [v2.0](docs/topology-v2.0.png) |
-| v2.1 | Full OSPF area plan (site + departmental blocks, per-site ABRs); no-transit ruling | [v2.1](docs/topology-v2.1-ospf.png) |
+| 0 | Link table as intent, containerlab generated from it | done |
+| 1 | Deploy the MVP topology | next |
+| 2 | OSPF rendered and pushed; gate on adjacencies Full | |
+| 3 | iBGP sessions derived from reflector/client flags | |
+| 4 | eBGP with the non-transit filter generated, not typed | |
+| 5 | Verify and drift detection from `show ... json` | |
+| 6 | CI: validate, render and test on every pull request | |
 
-## Roadmap
+Detail and open questions: [`PLAN.md`](PLAN.md).
 
-| Next | Scope |
-|---|---|
-| Prefix policy | What XFT advertises to each partner; what it accepts; filters enforcing no-transit both directions |
-| v2 build | containerlab: OSPF areas + iBGP mesh + dual-homed eBGP, verified with captures |
-| v3+ | Traffic engineering (local-pref, prepending, MED), failure injections, convergence; route reflectors in OK |
+## Background
 
-## Design documents
-
-- [`docs/BGP_Project_Capstone_v2.1.docx`](docs/BGP_Project_Capstone_v2.1.docx) — the design doc (current)
-- `lab/` — containerlab topology + FRR configs (lands with the v2 build)
+This is the capstone of a months-long study of L2/L3 from first principles —
+OSPF multi-area, eBGP policy and traffic engineering, iBGP route reflection —
+built create → break → learn, with every claim checked on the wire.
 
 ## Toolchain
 
-containerlab · FRRouting 9.1 · Lima VM (macOS) · Wireshark/tshark for every claim
+containerlab · FRRouting 9.1 · Python (PyYAML, Pydantic, Jinja2, pytest) ·
+Lima VM on macOS · Wireshark/tshark
