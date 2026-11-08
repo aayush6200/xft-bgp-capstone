@@ -11,3 +11,4 @@ venv/
 
 # build artifact: regenerate with  python -m xft.render.clab
 lab/xft.clab.yaml
+lab/clab-xft/
