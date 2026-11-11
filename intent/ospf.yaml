@@ -1,0 +1,15 @@
+default:
+  router-id: loopback
+routers:
+    # with ca-abr
+  - name: ca-ibgp-100
+    area: [{interface: 'eth1', area: 100}]
+
+    # with ca-ibgp, tx-abr, ok-core-000
+  - name: ca-abr-100
+    area: [{interface: 'eth1', area: 100}, {interface: 'eth2', area: 0}, {interface: 'eth3', area: 0}]
+
+    # with ca-abr
+  - name: ok-core-000
+    area: [{interface: 'eth1', area: 0}]
+  
