@@ -105,6 +105,25 @@ class DockerExecDriver:
             >>> driver.show("ca-ibgp-100", "show ip route")
         """
         return self._vtysh(router, [command])
+    
+
+    def get_loopback_address(self, router: str, command: str = 'show interface lo') -> str:
+        """
+        Get the routers loopback lo
+        Args:
+            router: router name, e.g. "ca-ibgp-100"
+            command: a single FRR show/clear-style command to get the router loopback, default show interface loopback
+
+        """
+        lines = self.show(router, command)
+        output_lines = lines.splitlines()
+
+        for line in output_lines:
+            line = line.strip()
+            if line.startswith('inet'):
+                addr = line.split()[1].split("/")[0]
+                return addr
+
 
     def configure(self, router: str, lines: list[str]) -> str:
         """Apply configuration lines, then persist them.
