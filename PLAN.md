@@ -27,6 +27,7 @@ intent/*.yml → validate → render → plan (diff vs running) → apply → ve
 | 4 | eBGP + policy | 12 partner sessions; non-transit outbound filter generated, not typed | |
 | 5 | Verify / drift | parse `show ... json`, compare to intent, non-zero exit on drift | |
 | 6 | CI | GitHub Actions: validate + render + unit tests on every PR | |
+| 7 | The map | live graph of the network — physical / OSPF / BGP overlays, re-rendered from router state, drift drawn in color. The finale. | jan-feb |
 
 ## Build scope — MVP first (design doc v2.5)
 
